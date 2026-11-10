@@ -71,8 +71,9 @@
 
 ## 🚀 التحميل والتثبيت السريع (Direct Download)
 
-يمكنك تجربة وتثبيت التطبيق مباشرة على هاتفك الأندرويد عبر تنزيل ملف الـ APK الجاهز من هذا المستودع:
-* 📥 [تحميل owl.apk مباشرة](owl.apk)
+يمكنك تجربة وتثبيت التطبيق مباشرة على هاتفك الأندرويد عبر تنزيل أحدث ملف APK من قسم الإصدارات (Releases):
+* 📥 **[تحميل أحدث إصدار owl.apk مباشرة](https://github.com/skyriman99-hub/owl/releases/latest/download/owl.apk)**
+* 📦 **[عرض جميع الإصدارات في Releases](https://github.com/skyriman99-hub/owl/releases)**
 
 > **ملاحظة:** يتطلب التثبيت تفعيل خيار "تثبيت التطبيقات من مصادر غير معروفة" (Install from Unknown Sources) في إعدادات جهازك.
 
