@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="ar" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Owl</title>
+  <style>
+    :root {
+      --bg-top: #0d1222;
+      --bg-mid: #121c3a;
+      --bg-bot: #1a121b;
+      --pill-bg: rgba(255, 255, 255, 0.08);
+      --pill-active: rgba(255, 255, 255, 0.18);
+      --tag-bg: rgba(255, 255, 255, 0.09);
+      --text: #f1f5f9;
+      --text-sub: #94a3b8;
+      --accent: #60a5fa;
+      --emerald: #34d399;
+      --danger: #f87171;
+      --nav-bg: #1c1518;
+      --nav-pentagon: #3a2d32;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", sans-serif;
+      background: linear-gradient(170deg, var(--bg-top) 0%, var(--bg-mid) 52%, var(--bg-bot) 100%);
+      background-attachment: fixed;
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 84px;
+      user-select: none;
+      overflow-x: hidden;
+    }
+
+    /* Top Area: Floating Mini-Player + Simple Icon Buttons & Pills */
+    .top-header {
+      padding: 12px 14px 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: linear-gradient(180deg, rgba(13, 18, 34, 0.96) 0%, rgba(13, 18, 34, 0.82) 85%, transparent 100%);
+      backdrop-filter: blur(10px);
+    }
+
+    .top-bar-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    /* Floating Mini Video Player (Top-Left like screenshot) */
+    .mini-player-box {
+      flex: 1;
+      max-width: 225px;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #000;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      position: relative;
+    }
+    .mini-player-box video {
+      width: 100%;
+      height: 126px;
+      object-fit: cover;
+      display: block;
+      background: #000;
+    }
+    .mini-close-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      border: none;
+      background: rgba(0, 0, 0, 0.65);
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Brand / Quick Status when mini-player is closed */
+    .brand-minimal {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-top: 4px;
+    }
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: var(--pill-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 19px;
+    }
+    .brand-name {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .brand-credit {
+      font-size: 11px;
+      color: var(--accent);
+      cursor: pointer;
+      display: block;
+    }
+
+    /* Right side controls: Top Icon Buttons + Audio/Video Pills */
+    .right-controls-col {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 9px;
+      margin-left: auto;
+    }
+    .icon-btn-group {
+      display: flex;
+      gap: 7px;
+    }
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 13px;
+      border: none;
+      background: var(--pill-bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .icon-btn:active {
+      transform: scale(0.93);
+      background: var(--pill-active);
+    }
+    .icon-btn.active {
+      background: var(--pill-active);
+      color: var(--accent);
+    }
+    .icon-btn svg {
+      width: 19px;
+      height: 19px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .mode-pills-row {
+      display: flex;
+      gap: 7px;
+    }
+    .mode-pill {
+      border: none;
+      background: var(--pill-bg);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 13px;
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .mode-pill:active {
+      transform: scale(0.95);
+    }
+    .mode-pill.active {
+      background: var(--pill-active);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+    }
+    .mode-pill svg {
+      width: 15px;
+      height: 15px;
+      fill: currentColor;
+    }
+
+    /* Lightweight Collapsible URL Download Bar */
+    .quick-dl-bar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(15, 23, 42, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 15px;
+      padding: 6px 8px;
+      margin-top: 2px;
+    }
+    .quick-dl-bar input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 13px;
+      padding: 6px 6px;
+      outline: none;
+      direction: ltr;
+    }
+    .quick-dl-bar input::placeholder {
+      color: var(--text-sub);
+    }
+    .pill-action-btn {
+      border: none;
+      background: var(--pill-bg);
+      color: var(--text);
+      padding: 7px 11px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .pill-action-btn.primary {
+      background: #2563eb;
+      color: #fff;
+    }
+    .pill-action-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* Active Download Progress Strip */
+    .tasks-strip {
+      padding: 0 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .task-row {
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .task-row-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12.5px;
+      font-weight: 600;
+      gap: 8px;
+    }
+    .progress-track {
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.25s ease;
+    }
+
+    /* Minimalist Media List (Exact screenshot layout) */
+    .media-list {
+      display: flex;
+      flex-direction: column;
+      padding: 6px 0;
+    }
+    .media-item-wrap {
+      display: flex;
+      flex-direction: column;
+    }
+    .media-row {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      padding: 9px 14px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .media-row:active, .media-row.selected {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .thumb-box {
+      width: 130px;
+      height: 74px;
+      border-radius: 11px;
+      overflow: hidden;
+      background: #090d16;
+      position: relative;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    }
+    .thumb-box img, .thumb-box video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .duration-badge {
+      position: absolute;
+      bottom: 5px;
+      right: 5px;
+      background: rgba(0, 0, 0, 0.78);
+      color: #f8fafc;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 1.5px 6px;
+      border-radius: 5px;
+      letter-spacing: 0.2px;
+    }
+    .media-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+    .media-title {
+      font-size: 14.5px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.28;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .meta-pill {
+      background: var(--tag-bg);
+      color: var(--text-sub);
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 6px;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .media-type-icon {
+      color: var(--text-sub);
+      padding: 6px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .media-type-icon svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+
+    /* Lightweight Quick Actions Drawer under selected item */
+    .quick-actions-drawer {
+      display: flex;
+      gap: 8px;
+      padding: 4px 14px 10px 14px;
+      justify-content: flex-end;
+    }
+    .lite-btn {
+      border: none;
+      background: var(--pill-bg);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 9px;
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+    }
+    .lite-btn:active {
+      background: var(--pill-active);
+    }
+    .lite-btn.danger {
+      color: var(--danger);
+    }
+
+    /* Empty state */
+    .empty-box {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-sub);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Settings / Info Sheet */
+    .info-sheet {
+      margin: 12px 14px;
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.06);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      direction: rtl;
+    }
+
+    /* Bottom Navigation Bar (Matching screenshot 1:1) */
+    nav.bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 40;
+      height: 68px;
+      background: var(--nav-bg);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      align-items: center;
+      padding: 0 8px;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.45);
+    }
+    .nav-btn {
+      border: none;
+      background: transparent;
+      color: #a89f91;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .nav-btn.active {
+      color: #f5ebe6;
+    }
+    .nav-btn svg {
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    /* Pentagon / House-shaped badge for the center download button */
+    .pentagon-badge {
+      width: 52px;
+      height: 46px;
+      background: var(--nav-pentagon);
+      clip-path: polygon(50% 0%, 100% 36%, 82% 100%, 18% 100%, 0% 36%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #f5ebe6;
+      transition: transform 0.12s;
+    }
+    .nav-btn:active .pentagon-badge {
+      transform: scale(0.92);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP HEADER: Floating Mini-Player + Minimalist Icon Buttons & Audio/Video Pills -->
+  <div class="top-header">
+    <div class="top-bar-row">
+      <!-- Top-Left Floating Video / Photo Preview (shown when playing a video or viewing a photo) -->
+      <div id="mini-player-wrap" class="mini-player-box hidden">
+        <video id="mini-video-el" controls playsinline preload="metadata"></video>
+        <img id="mini-img-el" class="hidden" style="width:100%;height:126px;object-fit:contain;background:#000;display:block;" alt="" />
+        <button class="mini-close-btn" onclick="closeMiniPlayer()">✕</button>
+      </div>
+
+      <!-- Minimal Brand Header (shown when mini-player is closed) -->
+      <div id="brand-header-wrap" class="brand-minimal">
+        <div class="brand-icon">🦉</div>
+        <div>
+          <div class="brand-name">Owl</div>
+          <span class="brand-credit" onclick="openDeveloperX()">𝕏 @IQ_909</span>
+        </div>
+      </div>
+
+      <!-- Top-Right Simple Buttons (Search, Filter, Menu + Audio/Video Pills) -->
+      <div class="right-controls-col">
+        <div class="icon-btn-group">
+          <!-- Search / URL Bar Toggle -->
+          <button class="icon-btn" id="btn-search-toggle" onclick="toggleSearchInput()" title="بحث أو لصق رابط">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </button>
+          <!-- Filter Toggle (All / Video / Audio) -->
+          <button class="icon-btn" id="btn-filter-toggle" onclick="cycleFilter()" title="تصفية">
+            <svg viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="7" y1="12" x2="17" y2="12"></line><line x1="10" y1="18" x2="14" y2="18"></line></svg>
+          </button>
+          <!-- Developer X Menu Button -->
+          <button class="icon-btn" onclick="openDeveloperX()" title="حساب المطور @IQ_909">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" fill="currentColor"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor"></circle><circle cx="12" cy="19" r="1.5" fill="currentColor"></circle></svg>
+          </button>
+        </div>
+
+        <div class="mode-pills-row">
+          <button class="mode-pill" id="pill-Audio" onclick="selectMode('Audio')">
+            <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+            <span>Audio</span>
+          </button>
+          <button class="mode-pill active" id="pill-Video" onclick="selectMode('Video')">
+            <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+            <span>Video</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lightweight URL / Search Bar -->
+    <div id="url-bar-box" class="quick-dl-bar">
+      <input type="text" id="url-input" placeholder="الصق رابط الفيديو أو ابحث هنا..." oninput="onUrlOrSearchInput()" />
+      <button class="pill-action-btn" onclick="pasteClipboard()">لصق</button>
+      <button class="pill-action-btn primary" id="dl-btn" onclick="startDownload()">تحميل ↓</button>
+    </div>
+  </div>
+
+  <!-- ACTIVE DOWNLOAD TASKS STRIP -->
+  <div id="tasks-strip" class="tasks-strip"></div>
+
+  <!-- SETTINGS / DEVELOPER SHEET (When Sliders tab is active) -->
+  <div id="settings-sheet" class="info-sheet hidden">
+    <div style="font-size:15px;font-weight:700;">إعدادات وحقوق التطبيق</div>
+    <div style="font-size:12.5px;color:var(--text-sub);">مسار الحفظ: <span dir="ltr">/storage/emulated/0/Download/Owl</span></div>
+    <div style="font-size:12.5px;color:var(--text-sub);">المنصات المدعومة: YouTube, X, Instagram, Facebook, TikTok</div>
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button class="pill-action-btn primary" onclick="openDeveloperX()">حساب المطور 𝕏 @IQ_909</button>
+    </div>
+  </div>
+
+  <!-- COMPACT MEDIA LIST (Matching screenshot rows) -->
+  <div id="media-list" class="media-list"></div>
+
+  <!-- BOTTOM NAVIGATION BAR (Matching screenshot 4 icons) -->
+  <nav class="bottom-nav">
+    <!-- 1. Home -->
+    <button class="nav-btn active" id="nav-home" onclick="setBottomTab('home')">
+      <svg viewBox="0 0 24 24">
+        <path d="M3 10.5L12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5v-9z"></path>
+        <path d="M9 15c1.5 1.5 4.5 1.5 6 0"></path>
+      </svg>
+    </button>
+
+    <!-- 2. Download Button inside Pentagon Badge -->
+    <button class="nav-btn" id="nav-dl" onclick="triggerQuickPasteDownload()">
+      <div class="pentagon-badge">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 4v11"></path>
+          <path d="M8 11l4 4 4-4"></path>
+          <path d="M7 18c2.5 2 7.5 2 10 0"></path>
+        </svg>
+      </div>
+    </button>
+
+    <!-- 3. Recent / History -->
+    <button class="nav-btn" id="nav-recent" onclick="setBottomTab('recent')">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9"></circle>
+        <polyline points="12 7 12 12 15.5 14"></polyline>
+      </svg>
+    </button>
+
+    <!-- 4. Settings / Credits -->
+    <button class="nav-btn" id="nav-settings" onclick="setBottomTab('settings')">
+      <svg viewBox="0 0 24 24">
+        <line x1="4" y1="8" x2="20" y2="8"></line>
+        <circle cx="9" cy="8" r="2.5" fill="#1c1518"></circle>
+        <line x1="4" y1="16" x2="20" y2="16"></line>
+        <circle cx="15" cy="16" r="2.5" fill="#1c1518"></circle>
+      </svg>
+    </button>
+  </nav>
+
+  <script>
+    let state = {
+      downloadType: 'Video',
+      mediaFilter: 'All', // 'All', 'Video', 'Audio'
+      searchQuery: '',
+      selectedVideoId: null,
+      videos: [],
+      tasks: []
+    };
+
+    function openDeveloperX() {
+      const url = 'https://x.com/IQ_909';
+      if (window.OwlBridge && window.OwlBridge.openExternalUrl) {
+        window.OwlBridge.openExternalUrl(url);
+      } else {
+        window.open(url, '_blank');
+      }
+    }
+
+    function selectMode(mode) {
+      state.downloadType = mode;
+      document.getElementById('pill-Audio').classList.toggle('active', mode === 'Audio');
+      document.getElementById('pill-Video').classList.toggle('active', mode === 'Video');
+      document.getElementById('dl-btn').textContent = mode === 'Audio' ? 'تحميل صوت ↓' : 'تحميل ↓';
+    }
+
+    function cycleFilter() {
+      const order = ['All', 'Video', 'Audio'];
+      const nextIdx = (order.indexOf(state.mediaFilter) + 1) % order.length;
+      state.mediaFilter = order[nextIdx];
+      document.getElementById('btn-filter-toggle').classList.toggle('active', state.mediaFilter !== 'All');
+      renderMediaList();
+    }
+
+    function toggleSearchInput() {
+      const bar = document.getElementById('url-bar-box');
+      bar.classList.toggle('hidden');
+      if (!bar.classList.contains('hidden')) {
+        document.getElementById('url-input').focus();
+      }
+    }
+
+    function onUrlOrSearchInput() {
+      const val = document.getElementById('url-input').value.trim();
+      if (!val.startsWith('http')) {
+        state.searchQuery = val.toLowerCase();
+        renderMediaList();
+      } else if (state.searchQuery) {
+        state.searchQuery = '';
+        renderMediaList();
+      }
+    }
+
+    function pasteClipboard() {
+      if (window.OwlBridge && window.OwlBridge.readClipboardText) {
+        const clip = (window.OwlBridge.readClipboardText() || '').trim();
+        if (clip) {
+          document.getElementById('url-input').value = clip;
+          state.searchQuery = '';
+          renderMediaList();
+        }
+      }
+    }
+
+    function triggerQuickPasteDownload() {
+      const bar = document.getElementById('url-bar-box');
+      bar.classList.remove('hidden');
+      const input = document.getElementById('url-input');
+      if (!input.value.trim() && window.OwlBridge && window.OwlBridge.readClipboardText) {
+        const clip = (window.OwlBridge.readClipboardText() || '').trim();
+        if (clip.includes('http')) {
+          input.value = clip;
+        }
+      }
+      if (input.value.trim().includes('http')) {
+        startDownload();
+      } else {
+        input.focus();
+      }
+    }
+
+    function setBottomTab(tab) {
+      ['home', 'recent', 'settings'].forEach(t => {
+        const el = document.getElementById('nav-' + t);
+        if (el) el.classList.toggle('active', t === tab);
+      });
+      document.getElementById('settings-sheet').classList.toggle('hidden', tab !== 'settings');
+    }
+
+    function playInMiniPlayer(id) {
+      const v = state.videos.find(x => x.id === id);
+      if (!v) return;
+      state.selectedVideoId = (state.selectedVideoId === id) ? null : id;
+
+      const wrap = document.getElementById('mini-player-wrap');
+      const brand = document.getElementById('brand-header-wrap');
+      const videoEl = document.getElementById('mini-video-el');
+      const imgEl = document.getElementById('mini-img-el');
+      const isImg = Boolean(v.isImage || /\.(jpg|jpeg|png|webp)$/i.test(v.videoPath || ''));
+
+      wrap.classList.remove('hidden');
+      brand.classList.add('hidden');
+
+      const src = v.fileUrl || ('file://' + v.videoPath);
+      if (isImg) {
+        videoEl.pause();
+        videoEl.classList.add('hidden');
+        imgEl.src = src;
+        imgEl.classList.remove('hidden');
+      } else {
+        imgEl.classList.add('hidden');
+        videoEl.classList.remove('hidden');
+        if (videoEl.src !== src) {
+          videoEl.src = src;
+        }
+        videoEl.play().catch(() => {});
+      }
+      renderMediaList();
+    }
+
+    function openExternal(id, ev) {
+      if (ev) ev.stopPropagation();
+      if (window.OwlBridge && window.OwlBridge.openExternalPlayer) {
+        window.OwlBridge.openExternalPlayer(id);
+      }
+    }
+
+    function closeMiniPlayer() {
+      const videoEl = document.getElementById('mini-video-el');
+      videoEl.pause();
+      document.getElementById('mini-player-wrap').classList.add('hidden');
+      document.getElementById('brand-header-wrap').classList.remove('hidden');
+    }
+
+    function startDownload() {
+      const input = document.getElementById('url-input');
+      let url = input.value.trim();
+      if (!url && window.OwlBridge && window.OwlBridge.readClipboardText) {
+        const clip = (window.OwlBridge.readClipboardText() || '').trim();
+        if (clip.includes('http')) {
+          url = clip;
+          input.value = url;
+        }
+      }
+      if (!url || !url.includes('http')) {
+        input.focus();
+        return;
+      }
+
+      const taskId = 'owl_' + Date.now();
+      state.tasks.unshift({
+        taskId,
+        title: 'جاري استخراج وتحميل الفيديو...',
+        progress: 10,
+        status: 'RUNNING',
+        line: 'جاري الاتصال...'
+      });
+      input.value = '';
+      renderTasks();
+
+      if (window.OwlBridge && window.OwlBridge.startRealDownload) {
+        window.OwlBridge.startRealDownload(taskId, url, state.downloadType, '');
+      }
+    }
+
+    function cancelTask(taskId) {
+      if (window.OwlBridge && window.OwlBridge.cancelNativeDownload) {
+        window.OwlBridge.cancelNativeDownload(taskId);
+      }
+      state.tasks = state.tasks.filter(t => t.taskId !== taskId);
+      renderTasks();
+    }
+
+    function shareVideo(id, ev) {
+      if (ev) ev.stopPropagation();
+      if (window.OwlBridge && window.OwlBridge.shareVideoFile) {
+        window.OwlBridge.shareVideoFile(id);
+      }
+    }
+
+    function saveVideo(id, ev) {
+      if (ev) ev.stopPropagation();
+      if (window.OwlBridge && window.OwlBridge.saveVideoToDownloads) {
+        window.OwlBridge.saveVideoToDownloads(id);
+      }
+    }
+
+    function deleteVideo(id, ev) {
+      if (ev) ev.stopPropagation();
+      if (window.OwlBridge && window.OwlBridge.deleteVideoHistory) {
+        if (state.selectedVideoId === id) {
+          closeMiniPlayer();
+          state.selectedVideoId = null;
+        }
+        loadStateFromBridge(window.OwlBridge.deleteVideoHistory(id));
+      }
+    }
+
+    window.onOwlSharedUrl = function(sharedUrl) {
+      document.getElementById('url-input').value = sharedUrl;
+      startDownload();
+    };
+
+    window.onOwlTaskUpdate = function(rawJson) {
+      try {
+        const ev = JSON.parse(rawJson);
+        const target = state.tasks.find(t => t.taskId === ev.taskId);
+        if (!target) return;
+
+        if (typeof ev.progress === 'number') target.progress = ev.progress;
+        if (ev.status) target.status = ev.status;
+        if (ev.title) target.title = ev.title;
+        if (ev.line) target.line = ev.line.replace(/^\[[^\]]+\]\s*/, '');
+
+        if (ev.status === 'COMPLETED') {
+          state.tasks = state.tasks.filter(t => t.taskId !== ev.taskId);
+          if (ev.stateJson) {
+            loadStateFromBridge(ev.stateJson);
+          }
+          if (ev.videoId) {
+            playInMiniPlayer(ev.videoId);
+          }
+          return;
+        }
+
+        renderTasks();
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    function loadStateFromBridge(jsonStr) {
+      try {
+        const data = JSON.parse(jsonStr);
+        state.videos = data.videos || [];
+        renderTasks();
+        renderMediaList();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderTasks() {
+      const container = document.getElementById('tasks-strip');
+      if (state.tasks.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+      container.innerHTML = state.tasks.map(t => {
+        const isErr = t.status === 'ERROR';
+        return `
+          <div class="task-row" style="${isErr ? 'border:1px solid var(--danger);' : ''}">
+            <div class="task-row-top">
+              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${isErr ? t.line : t.title}</span>
+              <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                <span style="color:var(--accent);font-size:11.5px;">${isErr ? 'خطأ' : t.progress + '%'}</span>
+                <button class="pill-action-btn" style="padding:3px 8px;font-size:11px;color:var(--danger);" onclick="cancelTask('${t.taskId}')">✕</button>
+              </div>
+            </div>
+            ${!isErr ? `<div class="progress-track"><div class="progress-bar" style="width:${t.progress}%"></div></div>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderMediaList() {
+      const container = document.getElementById('media-list');
+      let list = state.videos;
+
+      if (state.searchQuery) {
+        list = list.filter(v =>
+          (v.videoTitle || '').toLowerCase().includes(state.searchQuery) ||
+          (v.videoAuthor || '').toLowerCase().includes(state.searchQuery) ||
+          (v.extractor || '').toLowerCase().includes(state.searchQuery)
+        );
+      }
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="empty-box">
+            <div style="font-size:32px;opacity:0.7;">🎬</div>
+            <div style="font-size:14.5px;font-weight:600;color:var(--text);">قائمة الفيديوهات فارغة</div>
+            <div style="font-size:12px;">الصق أي رابط في الأعلى أو اضغط زر التحميل السفلي</div>
+            <div style="font-size:11.5px;color:var(--accent);margin-top:8px;cursor:pointer;" onclick="openDeveloperX()">𝕏 @IQ_909</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = list.map(v => {
+        const isSelected = state.selectedVideoId === v.id;
+        const srcUrl = v.fileUrl || ('file://' + v.videoPath);
+        const isImg = Boolean(v.isImage || /\.(jpg|jpeg|png|webp)$/i.test(v.videoPath || ''));
+        const badgeText = v.fileSize || (isImg ? 'IMG' : 'MP4');
+        const dateText = v.dateLabel || v.extractor;
+
+        return `
+          <div class="media-item-wrap">
+            <div class="media-row ${isSelected ? 'selected' : ''}" onclick="playInMiniPlayer(${v.id})">
+              <div class="thumb-box">
+                ${isImg
+                  ? `<img src="${srcUrl}" alt="" loading="lazy" />`
+                  : (v.thumbnailUrl
+                      ? `<img src="${v.thumbnailUrl}" alt="" loading="lazy" onerror="this.style.display='none'" />`
+                      : `<video src="${srcUrl}#t=0.5" preload="metadata" muted playsinline></video>`)
+                }
+                <span class="duration-badge">${badgeText}</span>
+              </div>
+
+              <div class="media-info">
+                <div class="media-title">${v.videoTitle}</div>
+                <span class="meta-pill">${v.videoAuthor || v.extractor}</span>
+                <span class="meta-pill">${dateText}</span>
+              </div>
+
+              <div class="media-type-icon">
+                ${isImg
+                  ? `<svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>`
+                  : `<svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>`
+                }
+              </div>
+            </div>
+
+            ${isSelected ? `
+              <div class="quick-actions-drawer">
+                <button class="lite-btn" onclick="openExternal(${v.id}, event)">🔍 عرض</button>
+                <button class="lite-btn" onclick="shareVideo(${v.id}, event)">📤 مشاركة</button>
+                <button class="lite-btn" onclick="saveVideo(${v.id}, event)">💾 حفظ في الجهاز</button>
+                <button class="lite-btn danger" onclick="deleteVideo(${v.id}, event)">🗑️ حذف</button>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function initApp() {
+      if (window.OwlBridge && window.OwlBridge.getInitialStateJson) {
+        loadStateFromBridge(window.OwlBridge.getInitialStateJson());
+      } else {
+        renderMediaList();
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>

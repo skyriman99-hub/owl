@@ -1,0 +1,32 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Background Circle (Material 3 Primary Container) -->
+    <path
+        android:fillColor="#004C68"
+        android:pathData="M0,0h108v108h-108z" />
+    <!-- Stylized Owl Head & Ears -->
+    <path
+        android:fillColor="#7AD0FF"
+        android:pathData="M28,26 L40,36 L68,36 L80,26 L78,66 C78,79 67,86 54,86 C41,86 30,79 30,66 Z" />
+    <!-- Left Eye -->
+    <path
+        android:fillColor="#0F1417"
+        android:pathData="M43,52 m-9,0 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M43,52 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0" />
+    <!-- Right Eye -->
+    <path
+        android:fillColor="#0F1417"
+        android:pathData="M65,52 m-9,0 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M65,52 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0" />
+    <!-- Owl Beak / Download Arrow -->
+    <path
+        android:fillColor="#FFB74D"
+        android:pathData="M49,60 L59,60 L54,70 Z" />
+</vector>
