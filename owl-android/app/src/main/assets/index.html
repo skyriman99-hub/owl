@@ -39,7 +39,7 @@
 
     /* Top Area: Floating Mini-Player + Simple Icon Buttons & Pills */
     .top-header {
-      padding: 12px 14px 6px;
+      padding: 14px 14px 8px;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -208,6 +208,8 @@
     }
     .quick-dl-bar input {
       flex: 1;
+      min-width: 0;
+      width: 100%;
       background: transparent;
       border: none;
       color: var(--text);
@@ -309,6 +311,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+      object-position: center 22%;
       display: block;
     }
     .duration-badge {
@@ -370,28 +373,58 @@
     /* Lightweight Quick Actions Drawer under selected item */
     .quick-actions-drawer {
       display: flex;
-      gap: 8px;
-      padding: 4px 14px 10px 14px;
+      gap: 10px;
+      padding: 4px 16px 12px 16px;
       justify-content: flex-end;
+      align-items: center;
     }
-    .lite-btn {
-      border: none;
-      background: var(--pill-bg);
+    .lite-icon-btn {
+      width: 42px;
+      height: 38px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      background: rgba(255, 255, 255, 0.07);
+      backdrop-filter: blur(8px);
       color: var(--text);
-      padding: 6px 12px;
-      border-radius: 9px;
-      font-size: 12px;
-      font-weight: 600;
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      justify-content: center;
       cursor: pointer;
+      transition: transform 0.14s ease, background 0.15s ease, border-color 0.15s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
     }
-    .lite-btn:active {
-      background: var(--pill-active);
+    .lite-icon-btn svg {
+      width: 19px;
+      height: 19px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
-    .lite-btn.danger {
-      color: var(--danger);
+    .lite-icon-btn:active {
+      transform: scale(0.91);
+      background: rgba(255, 255, 255, 0.16);
+    }
+    .lite-icon-btn.view-accent {
+      color: #93c5fd;
+      background: rgba(59, 130, 246, 0.12);
+      border-color: rgba(96, 165, 250, 0.22);
+    }
+    .lite-icon-btn.share-accent {
+      color: #c4b5fd;
+      background: rgba(139, 92, 246, 0.12);
+      border-color: rgba(167, 139, 250, 0.22);
+    }
+    .lite-icon-btn.save-accent {
+      color: #6ee7b7;
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(52, 211, 153, 0.22);
+    }
+    .lite-icon-btn.danger {
+      color: #fca5a5;
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(248, 113, 113, 0.22);
     }
 
     /* Empty state */
@@ -480,9 +513,13 @@
   <!-- TOP HEADER: Floating Mini-Player + Minimalist Icon Buttons & Audio/Video Pills -->
   <div class="top-header">
     <div class="top-bar-row">
-      <!-- Top-Left Floating Video / Photo Preview (shown when playing a video or viewing a photo) -->
+      <!-- Top-Left Floating Video / Audio / Photo Preview -->
       <div id="mini-player-wrap" class="mini-player-box hidden">
         <video id="mini-video-el" controls playsinline preload="metadata"></video>
+        <div id="mini-audio-wrap" class="hidden" style="width:100%;height:126px;background:#0b1120;display:flex;flex-direction:column;justify-content:space-between;position:relative;">
+          <img id="mini-audio-cover" style="width:100%;height:78px;object-fit:cover;opacity:0.85;" alt="" />
+          <audio id="mini-audio-el" controls style="width:100%;height:46px;background:#0f172a;"></audio>
+        </div>
         <img id="mini-img-el" class="hidden" style="width:100%;height:126px;object-fit:contain;background:#000;display:block;" alt="" />
         <button class="mini-close-btn" onclick="closeMiniPlayer()">✕</button>
       </div>
@@ -687,8 +724,12 @@
       const wrap = document.getElementById('mini-player-wrap');
       const brand = document.getElementById('brand-header-wrap');
       const videoEl = document.getElementById('mini-video-el');
+      const audioWrap = document.getElementById('mini-audio-wrap');
+      const audioEl = document.getElementById('mini-audio-el');
+      const audioCover = document.getElementById('mini-audio-cover');
       const imgEl = document.getElementById('mini-img-el');
       const isImg = Boolean(v.isImage || /\.(jpg|jpeg|png|webp)$/i.test(v.videoPath || ''));
+      const isAud = Boolean(v.isAudio || /\.(m4a|mp3|aac|wav|ogg|opus)$/i.test(v.videoPath || ''));
 
       wrap.classList.remove('hidden');
       brand.classList.add('hidden');
@@ -696,12 +737,28 @@
       const src = v.fileUrl || ('file://' + v.videoPath);
       if (isImg) {
         videoEl.pause();
+        audioEl.pause();
         videoEl.classList.add('hidden');
+        audioWrap.classList.add('hidden');
         imgEl.src = src;
         imgEl.classList.remove('hidden');
+      } else if (isAud) {
+        videoEl.pause();
+        videoEl.classList.add('hidden');
+        imgEl.classList.add('hidden');
+        audioWrap.classList.remove('hidden');
+        audioCover.src = v.thumbnailUrl || '';
+        audioCover.style.display = v.thumbnailUrl ? 'block' : 'none';
+        if (audioEl.src !== src) {
+          audioEl.src = src;
+        }
+        audioEl.play().catch(() => {});
       } else {
+        audioEl.pause();
+        audioWrap.classList.add('hidden');
         imgEl.classList.add('hidden');
         videoEl.classList.remove('hidden');
+        videoEl.poster = v.thumbnailUrl || '';
         if (videoEl.src !== src) {
           videoEl.src = src;
         }
@@ -719,7 +776,9 @@
 
     function closeMiniPlayer() {
       const videoEl = document.getElementById('mini-video-el');
+      const audioEl = document.getElementById('mini-audio-el');
       videoEl.pause();
+      audioEl.pause();
       document.getElementById('mini-player-wrap').classList.add('hidden');
       document.getElementById('brand-header-wrap').classList.remove('hidden');
     }
@@ -859,6 +918,12 @@
       const container = document.getElementById('media-list');
       let list = state.videos;
 
+      if (state.mediaFilter === 'Audio') {
+        list = list.filter(v => Boolean(v.isAudio || /\.(m4a|mp3|aac|wav|ogg|opus)$/i.test(v.videoPath || '')));
+      } else if (state.mediaFilter === 'Video') {
+        list = list.filter(v => !v.isAudio && !/\.(m4a|mp3|aac|wav|ogg|opus)$/i.test(v.videoPath || ''));
+      }
+
       if (state.searchQuery) {
         list = list.filter(v =>
           (v.videoTitle || '').toLowerCase().includes(state.searchQuery) ||
@@ -871,7 +936,7 @@
         container.innerHTML = `
           <div class="empty-box">
             <div style="font-size:32px;opacity:0.7;">🎬</div>
-            <div style="font-size:14.5px;font-weight:600;color:var(--text);">قائمة الفيديوهات فارغة</div>
+            <div style="font-size:14.5px;font-weight:600;color:var(--text);">قائمة الوسائط فارغة</div>
             <div style="font-size:12px;">الصق أي رابط في الأعلى أو اضغط زر التحميل السفلي</div>
             <div style="font-size:11.5px;color:var(--accent);margin-top:8px;cursor:pointer;" onclick="openDeveloperX()">𝕏 @IQ_909</div>
           </div>
@@ -883,7 +948,8 @@
         const isSelected = state.selectedVideoId === v.id;
         const srcUrl = v.fileUrl || ('file://' + v.videoPath);
         const isImg = Boolean(v.isImage || /\.(jpg|jpeg|png|webp)$/i.test(v.videoPath || ''));
-        const badgeText = v.fileSize || (isImg ? 'IMG' : 'MP4');
+        const isAud = Boolean(v.isAudio || /\.(m4a|mp3|aac|wav|ogg|opus)$/i.test(v.videoPath || ''));
+        const badgeText = v.fileSize || (isImg ? 'IMG' : (isAud ? 'M4A' : 'MP4'));
         const dateText = v.dateLabel || v.extractor;
 
         return `
@@ -894,7 +960,9 @@
                   ? `<img src="${srcUrl}" alt="" loading="lazy" />`
                   : (v.thumbnailUrl
                       ? `<img src="${v.thumbnailUrl}" alt="" loading="lazy" onerror="this.style.display='none'" />`
-                      : `<video src="${srcUrl}#t=0.5" preload="metadata" muted playsinline></video>`)
+                      : (isAud
+                          ? `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:26px;background:#111827;">🎵</div>`
+                          : `<video src="${srcUrl}#t=0.5" preload="metadata" muted playsinline></video>`))
                 }
                 <span class="duration-badge">${badgeText}</span>
               </div>
@@ -908,17 +976,52 @@
               <div class="media-type-icon">
                 ${isImg
                   ? `<svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>`
-                  : `<svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>`
+                  : (isAud
+                      ? `<svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`
+                      : `<svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>`)
                 }
               </div>
             </div>
 
             ${isSelected ? `
               <div class="quick-actions-drawer">
-                <button class="lite-btn" onclick="openExternal(${v.id}, event)">🔍 عرض</button>
-                <button class="lite-btn" onclick="shareVideo(${v.id}, event)">📤 مشاركة</button>
-                <button class="lite-btn" onclick="saveVideo(${v.id}, event)">💾 حفظ في الجهاز</button>
-                <button class="lite-btn danger" onclick="deleteVideo(${v.id}, event)">🗑️ حذف</button>
+                <!-- عرض / فتح -->
+                <button class="lite-icon-btn view-accent" onclick="openExternal(${v.id}, event)" title="عرض">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M15 3h6v6"></path>
+                    <path d="M9 21H3v-6"></path>
+                    <path d="M21 3l-7 7"></path>
+                    <path d="M3 21l7-7"></path>
+                  </svg>
+                </button>
+                <!-- مشاركة -->
+                <button class="lite-icon-btn share-accent" onclick="shareVideo(${v.id}, event)" title="مشاركة">
+                  <svg viewBox="0 0 24 24">
+                    <circle cx="18" cy="5" r="3"></circle>
+                    <circle cx="6" cy="12" r="3"></circle>
+                    <circle cx="18" cy="19" r="3"></circle>
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                  </svg>
+                </button>
+                <!-- حفظ في الجهاز -->
+                <button class="lite-icon-btn save-accent" onclick="saveVideo(${v.id}, event)" title="حفظ في الجهاز">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                </button>
+                <!-- حذف -->
+                <button class="lite-icon-btn danger" onclick="deleteVideo(${v.id}, event)" title="حذف">
+                  <svg viewBox="0 0 24 24">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                    <path d="M10 11v6"></path>
+                    <path d="M14 11v6"></path>
+                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+                  </svg>
+                </button>
               </div>
             ` : ''}
           </div>

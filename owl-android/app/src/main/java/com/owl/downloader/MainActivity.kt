@@ -182,7 +182,45 @@ class MainActivity : Activity() {
             loadUrl("file:///android_asset/index.html")
         }
 
-        setContentView(webView)
+        val minTopPx = getStatusBarHeightPx()
+        val rootContainer = android.widget.FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#0D1222"))
+            setPadding(0, minTopPx, 0, 0)
+            setOnApplyWindowInsetsListener { view, insets ->
+                val topInset = if (Build.VERSION.SDK_INT >= 30) {
+                    insets.getInsets(
+                        android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.displayCutout()
+                    ).top
+                } else {
+                    @Suppress("DEPRECATION")
+                    insets.systemWindowInsetTop
+                }
+                val bottomInset = if (Build.VERSION.SDK_INT >= 30) {
+                    insets.getInsets(android.view.WindowInsets.Type.systemBars()).bottom
+                } else {
+                    @Suppress("DEPRECATION")
+                    insets.systemWindowInsetBottom
+                }
+                view.setPadding(0, maxOf(topInset, minTopPx), 0, bottomInset)
+                insets
+            }
+        }
+        rootContainer.addView(
+            webView,
+            android.widget.FrameLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        setContentView(rootContainer)
+    }
+
+    private fun getStatusBarHeightPx(): Int {
+        val resId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        val fromRes = if (resId > 0) resources.getDimensionPixelSize(resId) else 0
+        val fallbackPx = (34 * resources.displayMetrics.density).toInt()
+        return maxOf(fromRes, fallbackPx)
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -232,13 +270,82 @@ class MainActivity : Activity() {
         return n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".png") || n.endsWith(".webp")
     }
 
+    private fun isAudioFileName(name: String): Boolean {
+        val n = name.lowercase()
+        return n.endsWith(".m4a") || n.endsWith(".mp3") || n.endsWith(".aac") || n.endsWith(".wav") || n.endsWith(".ogg") || n.endsWith(".opus")
+    }
+
+    /**
+     * Converts a DASH fragmented audio stream (e.g. YouTube itag=140 ftypdash) or extracts
+     * the AAC audio track from a downloaded MP4 video into a standard non-fragmented .m4a file.
+     */
+    private fun remuxToCleanAudioM4a(inputFile: File, outputFile: File): Boolean {
+        val extractor = android.media.MediaExtractor()
+        var muxer: android.media.MediaMuxer? = null
+        return try {
+            extractor.setDataSource(inputFile.absolutePath)
+            var audioTrackIndex = -1
+            var audioFormat: android.media.MediaFormat? = null
+            for (i in 0 until extractor.trackCount) {
+                val format = extractor.getTrackFormat(i)
+                val mime = format.getString(android.media.MediaFormat.KEY_MIME) ?: ""
+                if (mime.startsWith("audio/")) {
+                    audioTrackIndex = i
+                    audioFormat = format
+                    break
+                }
+            }
+            if (audioTrackIndex < 0 || audioFormat == null) {
+                return false
+            }
+            extractor.selectTrack(audioTrackIndex)
+            if (outputFile.exists()) outputFile.delete()
+            muxer = android.media.MediaMuxer(
+                outputFile.absolutePath,
+                android.media.MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
+            )
+            val dstTrack = muxer.addTrack(audioFormat)
+            muxer.start()
+
+            val maxInputSize = runCatching {
+                audioFormat.getInteger(android.media.MediaFormat.KEY_MAX_INPUT_SIZE)
+            }.getOrDefault(256 * 1024).coerceAtLeast(256 * 1024)
+            val buffer = java.nio.ByteBuffer.allocate(maxInputSize)
+            val bufferInfo = android.media.MediaCodec.BufferInfo()
+
+            while (true) {
+                val sampleSize = extractor.readSampleData(buffer, 0)
+                if (sampleSize < 0) break
+                bufferInfo.offset = 0
+                bufferInfo.size = sampleSize
+                bufferInfo.presentationTimeUs = extractor.sampleTime.coerceAtLeast(0L)
+                val sampleFlags = extractor.sampleFlags
+                var codecFlags = 0
+                if ((sampleFlags and android.media.MediaExtractor.SAMPLE_FLAG_SYNC) != 0) {
+                    codecFlags = codecFlags or android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME
+                }
+                bufferInfo.flags = codecFlags
+                muxer.writeSampleData(dstTrack, buffer, bufferInfo)
+                extractor.advance()
+            }
+            muxer.stop()
+            outputFile.exists() && outputFile.length() > 512L
+        } catch (e: Exception) {
+            false
+        } finally {
+            runCatching { extractor.release() }
+            runCatching { muxer?.release() }
+        }
+    }
+
     private fun exportToPublicDownloads(sourceFile: File, displayFileName: String): String {
         val isImg = isImageFileName(displayFileName)
-        val isAudio = displayFileName.endsWith(".mp3", ignoreCase = true) || displayFileName.endsWith(".m4a", ignoreCase = true)
+        val isAudio = isAudioFileName(displayFileName)
         val mimeType = when {
             isImg && displayFileName.endsWith(".png", ignoreCase = true) -> "image/png"
             isImg && displayFileName.endsWith(".webp", ignoreCase = true) -> "image/webp"
             isImg -> "image/jpeg"
+            isAudio && displayFileName.endsWith(".mp3", ignoreCase = true) -> "audio/mpeg"
             isAudio -> "audio/mp4"
             else -> "video/mp4"
         }
@@ -436,8 +543,8 @@ class MainActivity : Activity() {
         val clients = listOf(
             ClientSpec(
                 name = "ANDROID",
-                version = "20.03.32",
-                ua = "com.google.android.youtube/20.03.32 (Linux; U; Android 14)",
+                version = "20.10.38",
+                ua = "com.google.android.youtube/20.10.38 (Linux; U; Android 14)",
                 sdk = 34,
                 osName = "Android",
                 osVersion = "14",
@@ -456,11 +563,11 @@ class MainActivity : Activity() {
             ),
             ClientSpec(
                 name = "IOS",
-                version = "20.03.02",
-                ua = "com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)",
+                version = "20.10.4",
+                ua = "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)",
                 sdk = null,
                 osName = "iPhone",
-                osVersion = "18.2.1.22C161",
+                osVersion = "18.3.2.22D82",
                 make = "Apple",
                 model = "iPhone16,2"
             )
@@ -508,52 +615,55 @@ class MainActivity : Activity() {
                     val formats = sd?.optJSONArray("formats") ?: JSONArray()
                     val adaptive = sd?.optJSONArray("adaptiveFormats") ?: JSONArray()
 
-                    var chosenFormat: JSONObject? = null
+                    val candidates = mutableListOf<Pair<JSONObject, Boolean>>()
 
                     if (isAudioMode) {
-                        // Look for audio/mp4 (itag 140) in adaptiveFormats first
+                        // Prefer itag 140 non-DRC audio/mp4 first, then other audio/mp4
                         for (i in 0 until adaptive.length()) {
                             val f = adaptive.getJSONObject(i)
                             val mime = f.optString("mimeType", "")
                             val url = f.optString("url", "")
+                            val isDrc = f.optBoolean("isDrc", false)
                             if (url.isNotBlank() && mime.startsWith("audio/mp4")) {
-                                chosenFormat = f
-                                if (f.optInt("itag") == 140) break
+                                if (f.optInt("itag") == 140 && !isDrc) {
+                                    candidates.add(0, Pair(f, true))
+                                } else {
+                                    candidates.add(Pair(f, true))
+                                }
                             }
                         }
                     }
 
-                    // For Video mode (or fallback if audio format wasn't found), pick combined video/mp4 from formats
-                    if (chosenFormat == null) {
-                        for (i in 0 until formats.length()) {
-                            val f = formats.getJSONObject(i)
-                            val mime = f.optString("mimeType", "")
-                            val url = f.optString("url", "")
-                            if (url.isNotBlank() && mime.startsWith("video/mp4")) {
-                                chosenFormat = f
-                                break
-                            }
+                    // Combined video/mp4 from formats (for Video mode, or Audio fallback to remux)
+                    for (i in 0 until formats.length()) {
+                        val f = formats.getJSONObject(i)
+                        val mime = f.optString("mimeType", "")
+                        val url = f.optString("url", "")
+                        if (url.isNotBlank() && mime.startsWith("video/mp4")) {
+                            candidates.add(Pair(f, false))
                         }
                     }
 
-                    // Fallback to adaptive video/mp4 (e.g., itag 135/134/136) if formats was empty
-                    if (chosenFormat == null) {
+                    // Adaptive video/mp4 fallback (only in Video mode)
+                    if (!isAudioMode) {
                         for (i in 0 until adaptive.length()) {
                             val f = adaptive.getJSONObject(i)
                             val mime = f.optString("mimeType", "")
                             val url = f.optString("url", "")
                             if (url.isNotBlank() && mime.startsWith("video/mp4") && mime.contains("avc1")) {
-                                chosenFormat = f
-                                break
+                                candidates.add(Pair(f, false))
                             }
                         }
                     }
 
-                    if (chosenFormat != null) {
-                        val streamUrl = chosenFormat.optString("url", "")
-                        val clen = chosenFormat.optString("contentLength", "0").toLongOrNull() ?: 0L
-                        val durMs = chosenFormat.optString("approxDurationMs", "0").toLongOrNull() ?: 0L
-                        val bitrate = chosenFormat.optLong("bitrate", 0L)
+                    for ((cand, isDirectAudio) in candidates) {
+                        val streamUrl = cand.optString("url", "")
+                        if (streamUrl.isBlank()) continue
+                        if (!probeYouTubeStream(streamUrl, c.ua)) continue
+
+                        val clen = cand.optString("contentLength", "0").toLongOrNull() ?: 0L
+                        val durMs = cand.optString("approxDurationMs", "0").toLongOrNull() ?: 0L
+                        val bitrate = cand.optLong("bitrate", 0L)
                         val estBytes = if (clen > 0L) clen else if (durMs > 0L && bitrate > 0L) (durMs * bitrate) / 8000L else 0L
 
                         conn.disconnect()
@@ -566,7 +676,7 @@ class MainActivity : Activity() {
                             userAgent = c.ua,
                             isYoutubeRangeStream = true,
                             estimatedBytes = estBytes,
-                            extension = "mp4"
+                            extension = if (isDirectAudio) "m4a" else "mp4"
                         )
                     }
                 }
@@ -574,6 +684,28 @@ class MainActivity : Activity() {
             }
         }
         return null
+    }
+
+    private fun probeYouTubeStream(streamUrl: String, ua: String): Boolean {
+        val testUrls = listOf(
+            if (streamUrl.contains("?")) "$streamUrl&range=0-4194303" else "$streamUrl?range=0-4194303",
+            streamUrl
+        )
+        for (u in testUrls) {
+            val ok = runCatching {
+                val conn = (URL(u).openConnection() as HttpURLConnection).apply {
+                    instanceFollowRedirects = true
+                    connectTimeout = 5000
+                    readTimeout = 5000
+                    setRequestProperty("User-Agent", ua)
+                }
+                val code = conn.responseCode
+                conn.disconnect()
+                code in 200..299
+            }.getOrDefault(false)
+            if (ok) return true
+        }
+        return false
     }
 
     private fun resolveTikTokStream(targetUrl: String, isAudioMode: Boolean, ua: String): ResolvedMediaStream? {
@@ -608,7 +740,7 @@ class MainActivity : Activity() {
                                 extractor = "TikTok",
                                 userAgent = ua,
                                 isYoutubeRangeStream = false,
-                                extension = "mp4"
+                                extension = if (isAudioMode) "mp3" else "mp4"
                             )
                         }
                     }
@@ -1315,6 +1447,7 @@ class MainActivity : Activity() {
                 if (!localFile.exists() || localFile.length() == 0L) continue
                 val fileUri = Uri.fromFile(localFile).toString()
                 val isImg = isImageFileName(localFile.name)
+                val isAud = isAudioFileName(localFile.name)
                 val sizeLabel = if (localFile.length() < 1024L * 1024L) {
                     String.format(java.util.Locale.ENGLISH, "%d KB", (localFile.length() / 1024L).coerceAtLeast(1L))
                 } else {
@@ -1334,6 +1467,7 @@ class MainActivity : Activity() {
                         put("dateLabel", dateStr)
                         put("extractor", v.extractor)
                         put("isImage", isImg)
+                        put("isAudio", isAud)
                     }
                 )
             }
@@ -1404,16 +1538,31 @@ class MainActivity : Activity() {
                                     "${resolved.streamUrl}?range=$startByte-$endByte"
                                 }
 
-                                val conn = (URL(chunkUrl).openConnection() as HttpURLConnection).apply {
+                                var conn = (URL(chunkUrl).openConnection() as HttpURLConnection).apply {
                                     instanceFollowRedirects = true
                                     connectTimeout = 8000
                                     readTimeout = 15000
                                     setRequestProperty("User-Agent", resolved.userAgent)
                                 }
 
-                                val code = conn.responseCode
+                                var code = conn.responseCode
+                                var usedFallbackNoRange = false
+                                if (code !in 200..299 && startByte == 0L) {
+                                    conn.disconnect()
+                                    usedFallbackNoRange = true
+                                    conn = (URL(resolved.streamUrl).openConnection() as HttpURLConnection).apply {
+                                        instanceFollowRedirects = true
+                                        connectTimeout = 10000
+                                        readTimeout = 20000
+                                        setRequestProperty("User-Agent", resolved.userAgent)
+                                    }
+                                    code = conn.responseCode
+                                }
                                 if (code !in 200..299) {
                                     conn.disconnect()
+                                    if (startByte == 0L) {
+                                        throw IllegalStateException("فشل الاتصال بخادم يوتيوب (HTTP $code)")
+                                    }
                                     break
                                 }
 
@@ -1450,7 +1599,7 @@ class MainActivity : Activity() {
                                 }
                                 conn.disconnect()
 
-                                if (chunkRead < chunkSize || chunkRead == 0L) {
+                                if (usedFallbackNoRange || chunkRead < chunkSize || chunkRead == 0L) {
                                     break
                                 }
                                 startByte += chunkRead
@@ -1512,8 +1661,40 @@ class MainActivity : Activity() {
                         throw IllegalStateException("الملف المحمل فارغ أو غير مكتمل")
                     }
 
+                    var finalFile = destFile
+                    var finalFileName = fileName
+
+                    // If user selected Audio mode, remux/extract clean non-fragmented .m4a audio track
+                    val wantAudio = downloadType.equals("Audio", ignoreCase = true)
+                    if (wantAudio && !isImageFileName(finalFile.name)) {
+                        if (!finalFile.name.endsWith(".mp3", ignoreCase = true)) {
+                            val baseWithoutExt = finalFileName.substringBeforeLast(".")
+                            val cleanM4aName = "${baseWithoutExt}.m4a"
+                            val remuxTarget = File(getAppMediaDir(), "mux_$cleanM4aName")
+                            val remuxOk = remuxToCleanAudioM4a(finalFile, remuxTarget)
+                            val targetM4aFile = File(getAppMediaDir(), cleanM4aName)
+                            if (remuxOk && remuxTarget.exists() && remuxTarget.length() > 512L) {
+                                if (finalFile.absolutePath != targetM4aFile.absolutePath) {
+                                    finalFile.delete()
+                                } else {
+                                    targetM4aFile.delete()
+                                }
+                                remuxTarget.renameTo(targetM4aFile)
+                                finalFile = targetM4aFile
+                                finalFileName = cleanM4aName
+                            } else {
+                                runCatching { remuxTarget.delete() }
+                                if (finalFile.absolutePath != targetM4aFile.absolutePath) {
+                                    finalFile.renameTo(targetM4aFile)
+                                    finalFile = targetM4aFile
+                                    finalFileName = cleanM4aName
+                                }
+                            }
+                        }
+                    }
+
                     // Export copy to public Downloads/Owl
-                    val publicSavedPath = exportToPublicDownloads(destFile, fileName)
+                    val publicSavedPath = exportToPublicDownloads(finalFile, finalFileName)
 
                     val insertedId = db.insertDownloadedVideo(
                         DownloadedVideoInfo(
@@ -1522,17 +1703,18 @@ class MainActivity : Activity() {
                             videoAuthor = resolved.author,
                             videoUrl = targetUrl,
                             thumbnailUrl = resolved.thumbnailUrl,
-                            videoPath = destFile.absolutePath,
+                            videoPath = finalFile.absolutePath,
                             extractor = resolved.extractor
                         )
                     )
 
-                    val fileUri = Uri.fromFile(destFile).toString()
-                    val isImg = isImageFileName(destFile.name)
-                    val sizeLabel = if (destFile.length() < 1024L * 1024L) {
-                        String.format(java.util.Locale.ENGLISH, "%d KB", (destFile.length() / 1024L).coerceAtLeast(1L))
+                    val fileUri = Uri.fromFile(finalFile).toString()
+                    val isImg = isImageFileName(finalFile.name)
+                    val isAud = isAudioFileName(finalFile.name)
+                    val sizeLabel = if (finalFile.length() < 1024L * 1024L) {
+                        String.format(java.util.Locale.ENGLISH, "%d KB", (finalFile.length() / 1024L).coerceAtLeast(1L))
                     } else {
-                        String.format(java.util.Locale.ENGLISH, "%.2f MB", destFile.length().toDouble() / (1024.0 * 1024.0))
+                        String.format(java.util.Locale.ENGLISH, "%.2f MB", finalFile.length().toDouble() / (1024.0 * 1024.0))
                     }
 
                     emitTaskUpdate(
@@ -1544,11 +1726,12 @@ class MainActivity : Activity() {
                             put("videoTitle", resolved.title)
                             put("videoAuthor", resolved.author)
                             put("thumbnailUrl", if (isImg) fileUri else resolved.thumbnailUrl)
-                            put("videoPath", destFile.absolutePath)
+                            put("videoPath", finalFile.absolutePath)
                             put("publicPath", publicSavedPath)
                             put("fileUrl", fileUri)
                             put("fileSize", sizeLabel)
                             put("isImage", isImg)
+                            put("isAudio", isAud)
                             put("line", "[اكتمل] تم حفظ الملف ($sizeLabel) في $publicSavedPath")
                             put("stateJson", getInitialStateJson())
                         }
@@ -1586,7 +1769,12 @@ class MainActivity : Activity() {
                 }
                 val contentUri = OwlFileProvider.getUriForFile(file)
                 val isImg = isImageFileName(file.name)
-                val shareMime = if (isImg) "image/*" else "video/mp4"
+                val isAud = isAudioFileName(file.name)
+                val shareMime = when {
+                    isImg -> "image/*"
+                    isAud -> "audio/*"
+                    else -> "video/mp4"
+                }
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = shareMime
                     putExtra(Intent.EXTRA_STREAM, contentUri)
@@ -1595,7 +1783,12 @@ class MainActivity : Activity() {
                     clipData = ClipData.newRawUri(video.videoTitle, contentUri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
-                val chooser = Intent.createChooser(shareIntent, if (isImg) "مشاركة الصورة عبر" else "مشاركة الفيديو عبر").apply {
+                val chooserTitle = when {
+                    isImg -> "مشاركة الصورة عبر"
+                    isAud -> "مشاركة الصوت عبر"
+                    else -> "مشاركة الفيديو عبر"
+                }
+                val chooser = Intent.createChooser(shareIntent, chooserTitle).apply {
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 runCatching {
@@ -1632,15 +1825,26 @@ class MainActivity : Activity() {
                 if (!file.exists()) return@post
                 val contentUri = OwlFileProvider.getUriForFile(file)
                 val isImg = isImageFileName(file.name)
-                val viewMime = if (isImg) "image/*" else "video/mp4"
+                val isAud = isAudioFileName(file.name)
+                val viewMime = when {
+                    isImg -> "image/*"
+                    isAud && file.name.endsWith(".mp3", ignoreCase = true) -> "audio/mpeg"
+                    isAud -> "audio/mp4"
+                    else -> "video/mp4"
+                }
                 val viewIntent = Intent(Intent.ACTION_VIEW).apply {
                     setDataAndType(contentUri, viewMime)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
+                val chooserTitle = when {
+                    isImg -> "عرض الصورة باستخدام"
+                    isAud -> "تشغيل الصوت باستخدام"
+                    else -> "تشغيل الفيديو باستخدام"
+                }
                 runCatching {
-                    startActivity(Intent.createChooser(viewIntent, if (isImg) "عرض الصورة باستخدام" else "تشغيل الفيديو باستخدام"))
+                    startActivity(Intent.createChooser(viewIntent, chooserTitle))
                 }.onFailure {
-                    Toast.makeText(this@MainActivity, "لا يوجد عارض خارجي، يمكنك العرض داخل التطبيق", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, "لا يوجد مشغل خارجي، يمكنك التشغيل داخل التطبيق", Toast.LENGTH_SHORT).show()
                 }
             }
         }
